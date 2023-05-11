@@ -7,7 +7,8 @@ export const generateToken = (user) => {
             _id: user._id,
             username: user.username,
             email: user.email,
-            isAdmin: user.isAdmin
+            isAdmin: user.isAdmin,
+            resetPassword: false,
         },
         process.env.JWT_SECRET,
         {
@@ -16,6 +17,21 @@ export const generateToken = (user) => {
     );
 };
 
+export const createResetToken =  (user) => {
+    
+    return jwt.sign(
+      {  _id: user._id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        resetPassword: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '5m' }
+    );
+     
+  };
+  
+
 export const isAuth = (req, res, next) => {
     const authorization = req.headers.authorization;
     if (authorization) {
@@ -23,7 +39,10 @@ export const isAuth = (req, res, next) => {
         jwt.verify(token, process.env.JWT_SECRET, (err, decode) => {
             if (err) {
                 res.status(401).send({ message: 'Invalid Token' });
-            } else {
+            } else if (decode.resetPassword) {
+                // grant access to reset password component
+                return res.status(401).send({ message: 'Access denied. This token only allows you to reset your password.' }); }
+            else {
                 req.user = decode;
                 next();
             }

@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import User from "../models/userModel.js";
-import { generateToken, isAuth } from "../utils.js";
+import { createResetToken, generateToken, isAdmin, isAuth } from "../utils.js";
 
 const userRouter = express.Router();
 
@@ -20,6 +20,23 @@ userRouter.post("/signin", async (req, res) => {
     }
   }
   res.status(401).send({ message: "Invalid email or password" });
+});
+
+userRouter.post("/forgot-pwd", async (req, res) => {
+  const user = await User.findOne({ email: req.body.email });
+  if (user) {
+    
+      res.send({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        token: createResetToken(user),
+      });
+      return;
+    
+  }
+  res.status(401).send({ message: "Invalid email" });
 });
 
 userRouter.post("/signup", async (req, res) => {
@@ -70,5 +87,49 @@ userRouter.put("/profile", isAuth, async (req, res) => {
     res.status(404).send({ message: "User not found" });
   }
 });
+
+userRouter.get("/", isAuth, isAdmin, async (req, res) => {
+  const users = await User.find({});
+  res.send(users);
+});
+
+userRouter.get("/:id", isAuth, isAdmin, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (user) {
+    res.send(user);
+  } else {
+    res.status(404).send({ message: "User Not Found" });
+  }
+});
+
+userRouter.put("/:id", isAuth, isAdmin, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (user) {
+    user.firstName = req.body.firstName || user.firstName;
+    user.lastName = req.body.lastName || user.lastName;
+    user.email = req.body.email || user.email;
+    user.isAdmin = Boolean(req.body.isAdmin);
+    const updatedUser = await user.save();
+    res.send({ message: "User Updated", user: updatedUser });
+  } else {
+    res.status(404).send({ message: "User Not Found" });
+  }
+});
+
+userRouter.delete('/:id', isAuth, isAdmin, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (user) {
+    if (user.email === 'admin@example.com' || user.isAdmin) {
+      res.status(400).send({ message: 'Can Not Delete Admin User' });
+      return;
+       }
+    await user.deleteOne();
+    res.send({ message: 'User Deleted' });
+  } else {
+    res.status(404).send({ message: 'User Not Found' });
+       }
+      }
+     );
+
 
 export default userRouter;
